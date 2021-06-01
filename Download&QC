@@ -1,0 +1,26 @@
+module load sratoolkit/2.9.6
+prefetch `cat sra.txt`
+# sra.txt including 2 RNA-seq sample as control, and 2 MeRIP-seq sample for detecting m6A
+# sample_ID: SRS4198958 SRS4198957 SRS4198954 SRS4198953
+
+for i in *.sra;do
+fastq-dump --split-3 -gzip $i
+done
+# unzip the file to fastq format
+
+module load fastp/0.20.0
+for i in *1.fastq.gz; do
+name=${i%_1.*}
+bsub -J fastp -n 4 -R span[hosts=1] -o %J.out -e %J.err -q q2680v2 \
+"fastp -i ${name}_1.fastq.gz -o ${name}_clean_1.fq.gz -I ${name}_2.fastq.gz -O ${name}_clean_2.fq.gz -w 4"
+done
+# QC, cut adapter and low quality reads
+
+module load FastQC/0.11.5-Java-1.8.0_92
+for i in *clean_1.fq.gz; do
+mkdir ${i%_clean*}
+bsub -J fastqc -n 4 -R span[hosts=1] -o %J.out -e %J.err -q q2680v2 \
+"fastqc $i ${i%1.*}2.fq.gz -o ./${i%_clean*} -t 4"
+done
+# ignore bsub......
+# see again, make sure data is clean
