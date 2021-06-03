@@ -1,0 +1,32 @@
+module load SAMtools/1.9
+module load module load hisat2/2.2.0
+for i in *clean_1.fq.gz;do
+name=${i%_clean*}
+bsub -J map -n 2 -R span[hosts=1] -o %J.out -e %J.err -q q2680v2 \
+"hisat2 -p 2 -5 1 -3 1 --dta -x ~/b73V4/hisat2/b73_index -1 ${name}_clean_1.fq.gz -2 ${name}_clean_2.fq.gz -S ${name}.sam; \
+samtools view -S -H ${name}.sam > ${name}.1.sam; \
+samtools view -S -F 4 ${name}.sam|awk 'BEGIN{FS=\":\"}{if(\$NF<5){print \$0}}' >> ${name}.1.sam; \
+samtools sort -@ 2 -o ${name}.bam ${name}.1.sam;"
+done
+# In the material and method, authors filter the reads mapping to over 5 genome regions.
+# 作者说要把比对到大于等于基因组上5个位置的reads过滤掉(unique mapping 比例很低，文库质量较差)
+# convert the SAM file to BAM format.
+# 将序列号改为样品名
+
+module load MACS2/2.2.7.1
+for i in ck*;do
+number=${i#*_}
+m6A=m6A_${number}
+ck=ck_${number}
+bsub -J map -n 2 -R span[hosts=1] -o %J.out -e %J.err -q q2680v2 \
+"macs2 callpeak -t ${m6A} -c ${ck} -f BAM -g 417272442 -n ${m6A%.bam} -B -q 0.01 2> ${m6A%.bam}.log"
+done
+# -t: 实验组的输出结果,-c: 对照组的输出结果
+# -f: -t和-c提供文件的格式，如果不提供这项，就是自动检测选择
+# -g: 基因组大小， 默认提供了hs, mm, ce, dm选项， 不在其中的话，比如说拟南芥，就需要自己提供了,这里是文章里给的玉米转录组大小，具体如何计算？？
+# -n: 输出文件的前缀名
+# -B: 会保存更多的信息在bedGraph文件中
+# -q: q值，也就是最小的PDR阈值， 默认是0.05,q值是根据p值利用BH计算，也就是多重试验矫正后的结果
+# -p： 这个是p值，指定p值后MACS2就不会用q值了
+# 输出的文件中，BED文件包含peak的数目和位置信息，其他文件详见MACS2软件说明
+# 现在得到了peak结果，准备进一步分析。
