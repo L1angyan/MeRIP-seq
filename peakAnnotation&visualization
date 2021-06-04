@@ -1,0 +1,61 @@
+getwd()
+setwd("D:/lyon/workspace/m6A")
+
+#.libPaths()
+#install.packages("BiocManager")
+#BiocManager::install("GenomicFeatures")
+#BiocManager::install("clusterProfiler")
+#不存在"GO.db"这个程辑包
+#BiocManager::install("GO.db")
+#BiocManager::install("ChIPseeker")
+#BiocManager::install("AnnotationHub")
+#BiocManager::install("BiocFileCache")
+
+library("ChIPseeker")
+library("GenomicFeatures")  #be used to make txdb object
+
+#hub = AnnotationHub()
+#query(hub,"zea")
+#maize = hub[["AH93894"]]
+#columns(maize)
+#length(keys(maize))
+
+peakfile1 <- readPeakFile("m6A_1_peaks.narrowPeak")
+peakfile2 <- readPeakFile("m6A_2_peaks.narrowPeak")
+#rm(peakfile)
+txdb <- makeTxDbFromGFF("Zea_mays.B73_RefGen_v4.50.gtf")
+
+covplot(peakfile1,weightCol=7,chrs=as.character(1:10))
+covplot(peakfile2,weightCol=7,chrs=as.character(1:10))
+# whole-genome m6A site
+# 没什么太大意义
+
+peakAnno1 <- annotatePeak(peakfile1,
+                          tssRegion = c(-3000, 3000), 
+                          TxDb = txdb, 
+                          assignGenomicAnnotation = TRUE, 
+                          addFlankGeneInfo = TRUE,
+                          flankDistance = 5000)
+peakAnno2 <- annotatePeak(peakfile2,
+                          tssRegion = c(-3000, 3000), 
+                          TxDb = txdb, 
+                          assignGenomicAnnotation = TRUE, 
+                          addFlankGeneInfo = TRUE,
+                          flankDistance = 5000)
+# Annotate peaks
+plotAnnoBar(peakAnno1)
+vennpie(peakAnno1)
+upsetplot(peakAnno1)
+plotAnnoPie(peakAnno1)
+#distribution of m6A signaling
+
+anno1<-as.data.frame(peakAnno1)
+anno2<-as.data.frame(peakAnno2)
+l = list(sample1 = anno1$geneId,
+         sample2 = anno2$geneId)
+library(VennDiagram)
+venn.diagram(l,fill=c("blue","red"),filename = "venn.png")
+# the overlap of 2 replications
+replicate = get.venn.partitions(l)
+both = replicate[1,4]
+# extracting the overlap genes of 2 replications
